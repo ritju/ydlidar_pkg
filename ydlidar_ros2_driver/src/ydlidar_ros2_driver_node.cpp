@@ -28,6 +28,8 @@
 #include <iostream>
 #include <string>
 #include <signal.h>
+#include <angles/angles.h>
+#include <limits>
 
 #define ROS2Verision "1.0.1"
 
@@ -135,6 +137,27 @@ int main(int argc, char *argv[]) {
   node->declare_parameter("angle_min", f_optvalue);
   node->get_parameter("angle_min", f_optvalue);
   laser.setlidaropt(LidarPropMinAngle, &f_optvalue, sizeof(float));
+
+  int angle_min1 = 0;
+  node->declare_parameter("angle_min1", angle_min1);
+  node->get_parameter("angle_min1", angle_min1);
+  float f_angle_min1 = angles::normalize_angle(angle_min1/180.0*M_PI);
+
+  int angle_max1 = 90;
+  node->declare_parameter("angle_max1", angle_max1);
+  node->get_parameter("angle_max1", angle_max1);
+  float f_angle_max1 = angles::normalize_angle(angle_max1/180.0*M_PI);
+
+  int angle_min2 = 270;
+  node->declare_parameter("angle_min2", angle_min2);
+  node->get_parameter("angle_min2", angle_min2);
+  float f_angle_min2 = angles::normalize_angle(angle_min2/180.0*M_PI);
+
+  int angle_max2 = 360;
+  node->declare_parameter("angle_max2", angle_max2);
+  node->get_parameter("angle_max2", angle_max2);
+  float f_angle_max2 = angles::normalize_angle(angle_max2/180.0*M_PI);
+
   /// unit: m
   f_optvalue = 64.f;
   node->declare_parameter("range_max", f_optvalue);
@@ -153,7 +176,6 @@ int main(int argc, char *argv[]) {
   bool invalid_range_is_inf = false;
   node->declare_parameter("invalid_range_is_inf", invalid_range_is_inf);
   node->get_parameter("invalid_range_is_inf", invalid_range_is_inf);
-
 
   bool ret = laser.initialize();
   if (ret) {
@@ -209,8 +231,8 @@ int main(int argc, char *argv[]) {
       scan_msg->range_max = scan.config.max_range;
       
       int size = (scan.config.max_angle - scan.config.min_angle)/ scan.config.angle_increment + 1;
-      scan_msg->ranges.resize(size);
-      scan_msg->intensities.resize(size);
+      scan_msg->ranges.resize(size, std::numeric_limits<float>::infinity());
+      scan_msg->intensities.resize(size, std::numeric_limits<float>::infinity());
 
       pc_msg->channels.resize(2);
       int idx_intensity = 0;
@@ -218,13 +240,33 @@ int main(int argc, char *argv[]) {
       int idx_timestamp = 1;
       pc_msg->channels[idx_timestamp].name = "stamps";
 
+      int index_range_min1 = std::ceil((f_angle_min1 - scan.config.min_angle)/scan.config.angle_increment);
+      int index_range_max1 = std::ceil((f_angle_max1 - scan.config.min_angle)/scan.config.angle_increment);
+      int index_range_min2 = std::ceil((f_angle_min2 - scan.config.min_angle)/scan.config.angle_increment);
+      int index_range_max2 = std::ceil((f_angle_max2 - scan.config.min_angle)/scan.config.angle_increment);
+
+      RCLCPP_DEBUG(node->get_logger(), "min1: %f, max1: %f", f_angle_min1, f_angle_max1);
+      RCLCPP_DEBUG(node->get_logger(), "min2: %f, max2: %f", f_angle_min2, f_angle_max2);
+      RCLCPP_DEBUG(node->get_logger(), "index_min1: %d, index_max1: %d", index_range_min1, index_range_max1);
+      RCLCPP_DEBUG(node->get_logger(), "index_min2: %d, index_max2: %d", index_range_min2, index_range_max2);
+
       for(size_t i=0; i < scan.points.size(); i++) {
         int index = std::ceil((scan.points[i].angle - scan.config.min_angle)/scan.config.angle_increment);
+        RCLCPP_DEBUG(node->get_logger(), "i: %zd, index: %d, angle: %f, angle_min: %f, angle_increament: %f", i, index, scan.points[i].angle, scan.config.min_angle, scan.config.angle_increment);
         if(index >=0 && index < size) {
-	  if (scan.points[i].range >= scan.config.min_range) {
-            scan_msg->ranges[index] = scan.points[i].range;
-            scan_msg->intensities[index] = scan.points[i].intensity;
-	  }
+          if ((index >= index_range_min1 && index <= index_range_max1) || (index >= index_range_min2  && index <= index_range_max2))
+          {
+            RCLCPP_DEBUG(node->get_logger(), "ignore index: %d", index);
+            continue;
+          }
+          else
+          {
+            if (scan.points[i].range >= scan.config.min_range) 
+            {
+                  scan_msg->ranges[index] = scan.points[i].range;
+                  scan_msg->intensities[index] = scan.points[i].intensity;
+            }
+          }
         }
 
 	if (scan.points[i].range >= scan.config.min_range &&

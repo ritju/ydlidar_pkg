@@ -25,6 +25,20 @@ import lifecycle_msgs.msg
 import os
 
 
+def get_environment_value(var, env, default):
+    try:
+        if env in os.environ:
+            var[0] = os.environ.get(env)
+            print(f'get {env} value: {var[0]} from docker_compose.yaml file')
+        else:
+            var[0] = default
+            print(f"Using default {env} value: {default}.")
+    except Exception as e:
+        print(f'exception: {str(e)}')
+        print(f"Please input {env} in docker_compose.yaml")
+        var[0] = default
+
+
 def generate_launch_description():
     share_dir = get_package_share_directory('ydlidar_ros2_driver')
     parameter_file = LaunchConfiguration('params_file')
@@ -34,24 +48,84 @@ def generate_launch_description():
                                            default_value=os.path.join(
                                                share_dir, 'params', 'ydlidar.yaml'),
                                            description='FPath to the ROS2 parameters file to use.')
+    ydlidar_l_port = ["/dev/ydlidar"]
+    ydlidar_r_port = ["/dev/ydlidar"]
 
-    driver_node = LifecycleNode(package='ydlidar_ros2_driver',
+    get_environment_value(ydlidar_l_port, "LIDAR_L_PORT", "/dev/ydlidar_l")
+    get_environment_value(ydlidar_r_port, "LIDAR_R_PORT", "/dev/ydlidar_r")
+
+    # left laser
+    angle_min1_l = [0]
+    angle_max1_l = [90]
+    angle_min2_l = [270]
+    angle_max2_l = [360]
+
+    get_environment_value(angle_min1_l, "ANGLE_MULMIN_1_L", 0)
+    get_environment_value(angle_max1_l, "ANGLE_MULMAX_1_L", 90)
+    get_environment_value(angle_min2_l, "ANGLE_MULMIN_2_L", 270)
+    get_environment_value(angle_max2_l, "ANGLE_MULMAX_2_L", 360)
+
+    # right laser
+    angle_min1_r = [0]
+    angle_max1_r = [90]
+    angle_min2_r = [270]
+    angle_max2_r = [360]
+
+    get_environment_value(angle_min1_r, "ANGLE_MULMIN_1_R", 0)
+    get_environment_value(angle_max1_r, "ANGLE_MULMAX_1_R", 90)
+    get_environment_value(angle_min2_r, "ANGLE_MULMIN_2_R", 270)
+    get_environment_value(angle_max2_r, "ANGLE_MULMAX_2_R", 360)
+    
+    params_extra_l = {
+        "port": ydlidar_l_port[0], 
+        "frame_id": "ydscan_l",
+        "angle_min1": angle_min1_l[0],
+        "angle_max1": angle_max1_l[0],
+        "angle_min2": angle_min2_l[0],
+        "angle_max2": angle_max2_l[0],
+    }
+    params_extra_r = {
+        "port": ydlidar_l_port[0], 
+        "frame_id": "ydscan_r",
+        "angle_min1": angle_min1_r[0],
+        "angle_max1": angle_max1_r[0],
+        "angle_min2": angle_min2_r[0],
+        "angle_max2": angle_max2_r[0],
+    }
+
+    driver_node_l = LifecycleNode(package='ydlidar_ros2_driver',
                                 executable='ydlidar_ros2_driver_node',
-                                name='ydlidar_ros2_driver_node',
+                                name='ydlidar_l',
                                 output='screen',
                                 emulate_tty=True,
-                                parameters=[parameter_file],
+                                parameters=[parameter_file, params_extra_l],
                                 namespace='/',
-                                remappings=[('scan', 'yd_scan')]
+                                remappings=[('scan', 'ydscan_l')]
                                 )
-    tf2_node = Node(package='tf2_ros',
+    
+    driver_node_r = LifecycleNode(package='ydlidar_ros2_driver',
+                                executable='ydlidar_ros2_driver_node',
+                                name='ydlidar_r',
+                                output='screen',
+                                emulate_tty=True,
+                                parameters=[parameter_file, params_extra_r],
+                                namespace='/',
+                                remappings=[('scan', 'ydscan_r')]
+                                )
+    
+    tf2_node_l = Node(package='tf2_ros',
                     executable='static_transform_publisher',
-                    name='static_tf_pub_laser',
-                    arguments=['0', '0', '0.02','0', '0', '0', '1','base_link','laser_frame'],
+                    name='static_tf_pub_laser_l',
+                    arguments=['0', '0', '0.02','0', '0', '0', '1','base_link','ydscan_l'],
+                    )
+    tf2_node_r = Node(package='tf2_ros',
+                    executable='static_transform_publisher',
+                    name='static_tf_pub_laser_r',
+                    arguments=['0', '0', '0.02','0', '0', '0', '1','base_link','ydscan_r'],
                     )
 
     return LaunchDescription([
         params_declare,
-        driver_node,
-        tf2_node,
+        driver_node_l,
+        tf2_node_l,
     ])
