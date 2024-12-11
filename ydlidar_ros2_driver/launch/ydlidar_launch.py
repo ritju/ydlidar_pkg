@@ -48,6 +48,10 @@ def generate_launch_description():
                                            default_value=os.path.join(
                                                share_dir, 'params', 'ydlidar.yaml'),
                                            description='FPath to the ROS2 parameters file to use.')
+    # log level control
+    log_level_l = LaunchConfiguration('log_level_l', default='info')
+    log_level_r = LaunchConfiguration('log_level_r', default='info')
+    
     ydlidar_l_port = ["/dev/ydlidar"]
     ydlidar_r_port = ["/dev/ydlidar"]
 
@@ -100,7 +104,9 @@ def generate_launch_description():
                                 emulate_tty=True,
                                 parameters=[parameter_file, params_extra_l],
                                 namespace='/',
-                                remappings=[('scan', 'ydscan_l')]
+                                remappings=[('scan', 'ydscan_l')],
+                                arguments=['--ros-args', '--log-level', ['ydlidar_l:=', log_level_l]],
+                                respawn=True,
                                 )
     
     driver_node_r = LifecycleNode(package='ydlidar_ros2_driver',
@@ -110,7 +116,9 @@ def generate_launch_description():
                                 emulate_tty=True,
                                 parameters=[parameter_file, params_extra_r],
                                 namespace='/',
-                                remappings=[('scan', 'ydscan_r')]
+                                remappings=[('scan', 'ydscan_r')],
+                                arguments=['--ros-args', '--log-level', ['ydlidar_l:=', log_level_r]],
+                                respawn=True,
                                 )
     
     tf2_node_l = Node(package='tf2_ros',
