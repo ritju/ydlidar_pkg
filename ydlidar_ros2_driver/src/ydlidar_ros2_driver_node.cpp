@@ -177,6 +177,10 @@ int main(int argc, char *argv[]) {
   node->declare_parameter("invalid_range_is_inf", invalid_range_is_inf);
   node->get_parameter("invalid_range_is_inf", invalid_range_is_inf);
 
+  float point_dis_max = 0.2;
+  node->declare_parameter("point_dis_max", point_dis_max);
+  node->get_parameter("point_dis_max", point_dis_max);
+
   bool ret = laser.initialize();
   if (ret) {
     ret = laser.turnOn();
@@ -281,6 +285,60 @@ int main(int argc, char *argv[]) {
         }
 
       }
+      static int frame_id = 0;
+      RCLCPP_DEBUG(node->get_logger(), "--------------- frame %d ---------------", frame_id++);
+      int num_delete = 0;
+      for (size_t i = 1; i < scan_msg->ranges.size() - 2; i++)
+      {
+        RCLCPP_DEBUG(node->get_logger(), "front: %f, current: %f, back: %f ", scan_msg->ranges[i-1], scan_msg->ranges[i], scan_msg->ranges[i+1]);
+        float delta_l, delta_r;
+        if (std::isinf(scan_msg->ranges[i]))
+        {
+          continue;
+        }
+        if (std::isinf(scan_msg->ranges[i-1]) && std::isinf(scan_msg->ranges[i+1]))
+        {
+          RCLCPP_DEBUG(node->get_logger(), "l_r inf, delete index: %zd", i);
+          scan_msg->ranges[i] = std::numeric_limits<float>::infinity();
+          num_delete++;
+          continue;
+        }
+        if (std::isinf(scan_msg->ranges[i-1]))
+        {
+          delta_r = std::fabs(scan_msg->ranges[i+1] - scan_msg->ranges[i]);
+          if (delta_r > point_dis_max)
+          {
+            RCLCPP_DEBUG(node->get_logger(), "l inf, r: %f > %f, delete index: %zd",delta_r, point_dis_max, i);
+            scan_msg->ranges[i] = std::numeric_limits<float>::infinity();
+            num_delete++;
+            continue;
+          } 
+        }
+        if (std::isinf(scan_msg->ranges[i+1]))
+        {
+          delta_l = std::fabs(scan_msg->ranges[i-1] - scan_msg->ranges[i]);
+          if (delta_l > point_dis_max)
+          {
+            RCLCPP_DEBUG(node->get_logger(), "r inf, l: %f > %f, delete index: %zd",delta_l, point_dis_max, i);
+            scan_msg->ranges[i] = std::numeric_limits<float>::infinity();
+            num_delete++;
+            continue;
+          } 
+        }
+        delta_l = std::fabs(scan_msg->ranges[i-1] - scan_msg->ranges[i]);
+        delta_r = std::fabs(scan_msg->ranges[i+1] - scan_msg->ranges[i]);
+        if (delta_l <= point_dis_max || delta_r <= point_dis_max)
+        {
+          continue;
+        }
+        else
+        {
+          scan_msg->ranges[i] = std::numeric_limits<float>::infinity();
+          RCLCPP_DEBUG(node->get_logger(), "l_r > %f, delta_l: %f, delta_r: %f delete index: %zd", point_dis_max, delta_l, delta_r, i);
+          num_delete++;
+        }
+      }
+      RCLCPP_DEBUG(node->get_logger(), "delete %d points.", num_delete);
 
       laser_pub->publish(*scan_msg);
       pc_pub->publish(*pc_msg);

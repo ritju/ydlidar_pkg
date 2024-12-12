@@ -46,3 +46,4 @@
     range_min: 0.01
     frequency: 10.0
     invalid_range_is_inf: false
+    point_dis_max: 0.2
