@@ -83,18 +83,18 @@ def generate_launch_description():
     params_extra_l = {
         "port": ydlidar_l_port[0], 
         "frame_id": "ydscan_l",
-        "angle_min1": angle_min1_l[0],
-        "angle_max1": angle_max1_l[0],
-        "angle_min2": angle_min2_l[0],
-        "angle_max2": angle_max2_l[0],
+        "angle_min1": int(angle_min1_l[0]),
+        "angle_max1": int(angle_max1_l[0]),
+        "angle_min2": int(angle_min2_l[0]),
+        "angle_max2": int(angle_max2_l[0]),
     }
     params_extra_r = {
         "port": ydlidar_l_port[0], 
         "frame_id": "ydscan_r",
-        "angle_min1": angle_min1_r[0],
-        "angle_max1": angle_max1_r[0],
-        "angle_min2": angle_min2_r[0],
-        "angle_max2": angle_max2_r[0],
+        "angle_min1": int(angle_min1_r[0]),
+        "angle_max1": int(angle_max1_r[0]),
+        "angle_min2": int(angle_min2_r[0]),
+        "angle_max2": int(angle_max2_r[0]),
     }
 
     driver_node_l = LifecycleNode(package='ydlidar_ros2_driver',
