@@ -41,10 +41,10 @@ def get_environment_value(var, env, default):
 
 def generate_launch_description():
     share_dir = get_package_share_directory('ydlidar_ros2_driver')
-    parameter_file = LaunchConfiguration('params_file')
+    parameter_file = LaunchConfiguration('params_file_ydlidar')
     node_name = 'ydlidar_ros2_driver_node'
 
-    params_declare = DeclareLaunchArgument('params_file',
+    params_declare = DeclareLaunchArgument('params_file_ydlidar',
                                            default_value=os.path.join(
                                                share_dir, 'params', 'ydlidar.yaml'),
                                            description='FPath to the ROS2 parameters file to use.')
@@ -135,5 +135,6 @@ def generate_launch_description():
     return LaunchDescription([
         params_declare,
         driver_node_l,
+        driver_node_r,
         # tf2_node_l,
     ])
