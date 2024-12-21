@@ -89,7 +89,7 @@ def generate_launch_description():
         "angle_max2": int(angle_max2_l[0]),
     }
     params_extra_r = {
-        "port": ydlidar_l_port[0], 
+        "port": ydlidar_r_port[0], 
         "frame_id": "ydscan_r",
         "angle_min1": int(angle_min1_r[0]),
         "angle_max1": int(angle_max1_r[0]),
@@ -117,7 +117,7 @@ def generate_launch_description():
                                 parameters=[parameter_file, params_extra_r],
                                 namespace='/',
                                 remappings=[('scan', 'ydscan_r')],
-                                arguments=['--ros-args', '--log-level', ['ydlidar_l:=', log_level_r]],
+                                arguments=['--ros-args', '--log-level', ['ydlidar_r:=', log_level_r]],
                                 respawn=True,
                                 )
     
