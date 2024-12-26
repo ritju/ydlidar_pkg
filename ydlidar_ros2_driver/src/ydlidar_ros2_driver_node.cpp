@@ -177,9 +177,14 @@ int main(int argc, char *argv[]) {
   node->declare_parameter("invalid_range_is_inf", invalid_range_is_inf);
   node->get_parameter("invalid_range_is_inf", invalid_range_is_inf);
 
-  float point_dis_max = 0.2;
-  node->declare_parameter("point_dis_max", point_dis_max);
-  node->get_parameter("point_dis_max", point_dis_max);
+  float point_dis_scale = 0.025;
+  node->declare_parameter("point_dis_scale", point_dis_scale);
+  node->get_parameter("point_dis_scale", point_dis_scale);
+
+  int point_continues_num = 2;
+  node->declare_parameter("point_continues_num", point_continues_num);
+  node->get_parameter("point_continues_num", point_continues_num);
+  point_continues_num = point_continues_num < 2 ? 2 : point_continues_num;
 
   bool ret = laser.initialize();
   if (ret) {
@@ -292,6 +297,7 @@ int main(int argc, char *argv[]) {
       {
         RCLCPP_DEBUG(node->get_logger(), "front: %f, current: %f, back: %f ", scan_msg->ranges[i-1], scan_msg->ranges[i], scan_msg->ranges[i+1]);
         float delta_l, delta_r;
+        float point_dis_max;
         if (std::isinf(scan_msg->ranges[i]))
         {
           continue;
@@ -306,6 +312,7 @@ int main(int argc, char *argv[]) {
         if (std::isinf(scan_msg->ranges[i-1]))
         {
           delta_r = std::fabs(scan_msg->ranges[i+1] - scan_msg->ranges[i]);
+          point_dis_max = scan_msg->ranges[i] * point_dis_scale;
           if (delta_r > point_dis_max)
           {
             RCLCPP_DEBUG(node->get_logger(), "l inf, r: %f > %f, delete index: %zd",delta_r, point_dis_max, i);
@@ -317,6 +324,7 @@ int main(int argc, char *argv[]) {
         if (std::isinf(scan_msg->ranges[i+1]))
         {
           delta_l = std::fabs(scan_msg->ranges[i-1] - scan_msg->ranges[i]);
+          point_dis_max = scan_msg->ranges[i] * point_dis_scale;
           if (delta_l > point_dis_max)
           {
             RCLCPP_DEBUG(node->get_logger(), "r inf, l: %f > %f, delete index: %zd",delta_l, point_dis_max, i);
@@ -338,6 +346,93 @@ int main(int argc, char *argv[]) {
           num_delete++;
         }
       }
+
+      // keep n continues ranges data
+      int ranges_size = (int)(scan_msg->ranges.size());
+      for (int i = 0; i < ranges_size;)
+      {
+        RCLCPP_DEBUG(node->get_logger(), "i: %d", i);
+        if (std::isinf(scan_msg->ranges[i]))
+        {
+         RCLCPP_DEBUG(node->get_logger(), "inf, i++");
+          i++;
+          continue;
+        }
+        else
+        {
+          int index_min, index_max;
+          int offset = point_continues_num - 1;
+          int continues_l = 0, continues_r = 0;
+          index_min = std::max(i - offset, 0);
+          index_max = std::min(i + offset, ranges_size - 1);
+          int index_l, index_r;
+
+          if (index_min < i)
+          {
+            for (index_l = i - 1; index_l >= index_min; index_l--)
+            {
+              if (std::isinf(scan_msg->ranges[index_l]))
+              {
+                break;
+              }
+              else
+              {
+                continues_l++;
+              }
+            }
+          }
+          if (continues_l == offset)
+          { 
+            RCLCPP_DEBUG(node->get_logger(), "continuse_l satisfied, i++", i);
+            i++;
+            continue;
+          }
+          else
+          {
+            if (index_max > i)
+            {
+              for (index_r = i + 1; index_r <= index_max; index_r++)
+              {
+                if (std::isinf(scan_msg->ranges[index_r]))
+                {
+                  break;
+                }
+                else
+                {
+                  continues_r++;
+                }
+              }
+              // fix bug for index_r
+              index_r = index_r == index_max + 1 ? index_max : index_r;
+
+              if ((continues_l + continues_r) >= offset)
+              {
+                RCLCPP_DEBUG(node->get_logger(), "continuse_l+r satisfied, i = index_r + 1, index_r: %d", index_r);
+                i = index_r + 1;
+                continue;
+              }
+              else
+              {
+                for (int j = i; j <= index_r; j++)
+                {
+                  scan_msg->ranges[j] = std::numeric_limits<float>::infinity();
+                }
+                RCLCPP_DEBUG(node->get_logger(), "continuse_l+r not satisfied, i = index_r + 1, index_r: %d", index_r);
+                i = index_r + 1;
+              }
+            } // end of index_max > i
+            else
+            {
+              RCLCPP_DEBUG(node->get_logger(), "index_max not > i, index_max:%d", index_max);
+              i++;
+              continue;
+            }            
+          }
+
+        } // end of else, std::isinf(scan_msg->ranges[i])        
+
+      } // end of for
+
       RCLCPP_DEBUG(node->get_logger(), "delete %d points.", num_delete);
 
       laser_pub->publish(*scan_msg);

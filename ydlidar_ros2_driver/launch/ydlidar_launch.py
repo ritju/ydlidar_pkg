@@ -52,8 +52,8 @@ def generate_launch_description():
     log_level_l = LaunchConfiguration('log_level_l', default='info')
     log_level_r = LaunchConfiguration('log_level_r', default='info')
     
-    ydlidar_l_port = ["/dev/ydlidar"]
-    ydlidar_r_port = ["/dev/ydlidar"]
+    ydlidar_l_port = ["/dev/ydlidar_l"]
+    ydlidar_r_port = ["/dev/ydlidar_r"]
 
     get_environment_value(ydlidar_l_port, "LIDAR_L_PORT", "/dev/ydlidar_l")
     get_environment_value(ydlidar_r_port, "LIDAR_R_PORT", "/dev/ydlidar_r")
@@ -106,7 +106,7 @@ def generate_launch_description():
                                 namespace='/',
                                 remappings=[('scan', 'ydscan_l')],
                                 arguments=['--ros-args', '--log-level', ['ydlidar_l:=', log_level_l]],
-                                respawn=True,
+                                # respawn=True,
                                 )
     
     driver_node_r = LifecycleNode(package='ydlidar_ros2_driver',
@@ -118,7 +118,7 @@ def generate_launch_description():
                                 namespace='/',
                                 remappings=[('scan', 'ydscan_r')],
                                 arguments=['--ros-args', '--log-level', ['ydlidar_r:=', log_level_r]],
-                                respawn=True,
+                                # respawn=True,
                                 )
     
     tf2_node_l = Node(package='tf2_ros',
